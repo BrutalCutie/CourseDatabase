@@ -27,36 +27,50 @@ class DBManager:
             self.fill_vacancies_table()
 
     def get_companies_and_vacancies_count(self):
-        with self.connect() as conn:
-            cur = conn.cursor()
-            cur.execute(
-                """
-                SELECT employer_name, open_vacancies FROM employers
-                """
-            )
 
-            return cur.fetchall()
+        return self.easy_querry(
+            """
+            SELECT employer_name, open_vacancies FROM employers
+            """
+        )
 
     def get_all_vacancies(self):
-        with self.connect() as conn:
-            cur = conn.cursor()
-            cur.execute(
-                """
-                SELECT vacancy_name, employer_name, salary FROM vacancies 
-                JOIN employers ON employers.id = vacancies.emp_id
-                """
-            )
 
-            return cur.fetchall()
+        return self.easy_querry(
+            """
+            SELECT vacancy_name, employer_name, salary FROM vacancies 
+            JOIN employers ON employers.id = vacancies.emp_id
+            """
+        )
 
     def get_avg_salary(self):
-        pass
+        return self.easy_querry(
+            """
+            SELECT AVG(salary) FROM vacancies
+            """, fetch='one'
+        )[0]
 
     def get_vacancies_with_higher_salary(self):
-        pass
+        average = self.get_avg_salary()
 
-    def get_vacancies_with_keyword(self):
-        pass
+        return self.easy_querry(
+            f"""
+            SELECT vacancy_name, employer_name, salary FROM vacancies 
+            JOIN employers ON employers.id = vacancies.emp_id
+            WHERE salary > {average} 
+            ORDER BY salary DESC
+            """
+        )
+
+    def get_vacancies_with_keyword(self, keyword):
+        return self.easy_querry(
+            f"""
+                    SELECT vacancy_name, employer_name, salary FROM vacancies 
+                    JOIN employers ON employers.id = vacancies.emp_id
+                    WHERE LOWER(description) LIKE '%{keyword.lower()}%' or LOWER(vacancy_name) LIKE '%{keyword.lower()}%'
+                    ORDER BY salary DESC
+                    """
+        )
 
     def connect(self): return psycopg2.connect(**self.connect_params)
 
@@ -131,6 +145,17 @@ class DBManager:
         conn.commit()
         conn.close()
 
+    def easy_querry(self, querry, fetch='all'):
+        with self.connect() as conn:
+            cur = conn.cursor()
+            cur.execute(querry)
+
+        if fetch == 'all':
+            return cur.fetchall()
+
+        elif fetch == 'one':
+            return cur.fetchone()
+
 
 if __name__ == '__main__':
 
@@ -149,9 +174,9 @@ if __name__ == '__main__':
 
     my_base = DBManager(employers_ids)
 
-    print(my_base.get_companies_and_vacancies_count())
+    result = my_base.get_vacancies_with_keyword('python')
 
-
+    print(result)
 
     # Estabilished time:
     # one thread = 43.16 sec
