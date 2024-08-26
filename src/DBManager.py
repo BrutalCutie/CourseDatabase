@@ -1,36 +1,11 @@
 import dotenv
 import psycopg2
 import os
-from threading import Thread
 
-import requests
 
 from roots import ENV_DIR
-
-
-class EmpDataWorker(Thread):
-    __slots = ['base_connect', 'emp_id']
-
-    employers_url = 'http://api.hh.ru/employers/'
-
-    def __init__(self, emp_id: int, base_connect):
-        super().__init__()
-        self.base_connect = base_connect
-        self.emp_id = str(emp_id)
-
-    def run(self):
-        response = requests.get(self.employers_url + self.emp_id)
-
-        result = response.json()
-        emp_name = result['name']
-        open_vacs = result['open_vacancies']
-        cur = self.base_connect.cursor()
-        cur.execute(
-            f"""
-            INSERT INTO employers (id, employer_name, open_vacancies) VALUES
-            ({self.emp_id}, '{emp_name}', {open_vacs});
-            """
-        )
+from src.employers import EmpDataWorker
+from src.vacancies import VacDataWorker
 
 
 class DBManager:
@@ -43,17 +18,36 @@ class DBManager:
         'port': os.getenv('port')
     }
 
-    def __init__(self, employers_id: list[int]):
+    def __init__(self, employers_id: list[int], auto_create=False):
         self.emloyers_id = employers_id
-        self.create_tables()
-        self.fill_emloyers_table()
-        self.fill_vacancies_table()
+
+        if auto_create is True:
+            self.create_tables()
+            self.fill_emloyers_table()
+            self.fill_vacancies_table()
 
     def get_companies_and_vacancies_count(self):
-        pass
+        with self.connect() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT employer_name, open_vacancies FROM employers
+                """
+            )
+
+            return cur.fetchall()
 
     def get_all_vacancies(self):
-        pass
+        with self.connect() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT vacancy_name, employer_name, salary FROM vacancies 
+                JOIN employers ON employers.id = vacancies.emp_id
+                """
+            )
+
+            return cur.fetchall()
 
     def get_avg_salary(self):
         pass
@@ -121,47 +115,18 @@ class DBManager:
         conn.close()
 
     def fill_vacancies_table(self):
-        base_url = 'https://api.hh.ru/vacancies'
-        params = {
-            'per_page': 100,
-            'page': 0,
-            'only_with_salary': True,
-            'employer_id': int
-        }
+
+        workers_list = []
 
         conn = self.connect()
 
-        for employer in self.emloyers_id:
-            params['page'] = 0
-            params['employer_id'] = employer
-            while True:
-                response = requests.get(base_url, params=params)
-                result = response.json()
+        for emp_id in self.emloyers_id:
+            worker = VacDataWorker(emp_id, conn)
+            worker.start()
+            workers_list.append(worker)
 
-                if not result.get('items'):
-                    break
-                else:
-                    for vac in result['items']:
-                        vac_id = vac.get('id')
-                        vac_salary = vac['salary'].get('from') or vac['salary'].get('to')
-                        vac_name = vac.get('name')
-                        vac_descr = vac.get('snippet', {}).get('responsibility')
-                        vac_url = vac.get('alternate_url')
-                        cur = conn.cursor()
-
-                        cur.execute(
-                            f"""
-                            MERGE INTO vacancies USING
-                                (VALUES({vac_id})) as src(id)
-                            ON vacancies.id = src.id
-                            WHEN NOT MATCHED THEN
-                                INSERT VALUES(
-                                {vac_id}, '{vac_name}', {employer}, {vac_salary}, '{vac_descr}', '{vac_url}');
-                            """
-                        )
-
-                params['page'] += 1
-            print(f'Обработан id {employer}')
+        for worker in workers_list:
+            worker.join()
 
         conn.commit()
         conn.close()
@@ -184,3 +149,11 @@ if __name__ == '__main__':
 
     my_base = DBManager(employers_ids)
 
+    print(my_base.get_companies_and_vacancies_count())
+
+
+
+    # Estabilished time:
+    # one thread = 43.16 sec
+    # vs.
+    # multi threads = 14.25 sec
