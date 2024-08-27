@@ -6,6 +6,7 @@ from src.vacancy import Vacancy
 
 
 class Interface:
+    """Интерфейс для работы с пользователем"""
     employers_ids = [
         15478,
         1740,
@@ -29,9 +30,13 @@ class Interface:
 
     @staticmethod
     def is_digit(dig_str: str):
+        """Проверка, что строка состоит только из чисел."""
+
         return dig_str.isdigit() is True
 
     def employers_menu(self):
+        """Меню интерфейса для работы с работодателями"""
+
         print('\nМЕНЮ ВЫБОРА РАБОТОДАТЕЛЕЙ')
         print("1. Вернуться в главное меню")
         print("2. Ввод своих работодателей")
@@ -78,6 +83,8 @@ class Interface:
             return self.main_menu()
 
     def vacancies_menu(self):
+        """Меню интерфейса для работы с вакансиями"""
+
         print("\nМЕНЮ РАБОТЫ С ВАКАНСИЯМИ")
         print("1. Вернуться в главное меню")
         print("2. Вывод всех вакансий")
@@ -168,6 +175,8 @@ class Interface:
             return self.vacancies_menu()
 
     def main_menu(self):
+        """Главное меню интерфейса"""
+
         print('\nГЛАВНОЕ МЕНЮ')
         print("1. Выбор работодателей")
         print("2. Работа по выводу вакансий")
