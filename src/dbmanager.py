@@ -6,8 +6,8 @@ import os
 
 
 from roots import ENV_DIR
-from src.employers import EmpDataWorker
-from src.vacancies import VacDataWorker
+from src.thread_employers import EmpDataWorker
+from src.thread_vacancies import VacDataWorker
 from psycopg2._psycopg import Decimal
 
 
@@ -39,15 +39,32 @@ class DBManager:
             self.fill_emloyers_table()
             self.fill_vacancies_table()
 
-    def get_companies_and_vacancies_count(self) -> list[tuple]:
+    def set_new_employers(self, new_employer_id_list: list[int]):
+        """
+
+        :param new_employer_id_list:
+        :return:
+        """
+        self.__truncate_table('vacancies')
+        self.__truncate_table('employers')
+        self.emloyers_id = new_employer_id_list
+        self.fill_emloyers_table()
+        self.fill_vacancies_table()
+
+    def get_companies_and_vacancies_count(self, full_data: bool = False) -> list[tuple]:
         """
         Функция для получения списка работодотелей и количества открытый вакансий
         :return:
         """
 
+        if not full_data:
+            data = 'employer_name, open_vacancies'
+        else:
+            data = 'id, employer_name, open_vacancies'
+
         return self.easy_querry(
-            """
-            SELECT employer_name, open_vacancies FROM employers
+            f"""
+            SELECT {data} FROM employers
             """
         )
 
@@ -101,7 +118,7 @@ class DBManager:
             """, fetch='one'
         )[0]
 
-    def get_vacancies_with_higher_salary(self) -> list[tuple]:
+    def get_vacancies_with_higher_salary(self, full_data: bool = False) -> list[tuple]:
         """
         Функция возвращает список вакансий, которые по зарплате выше чем средняя з/п по всем вакансиям
         :return:
@@ -109,16 +126,21 @@ class DBManager:
 
         average = self.get_avg_salary()
 
+        if not full_data:
+            data = 'vacancy_name, employer_name, salary'
+        else:
+            data = 'vacancies.id, vacancy_name, employer_name, salary, description, vacancy_url'
+
         return self.easy_querry(
             f"""
-            SELECT vacancy_name, employer_name, salary FROM vacancies 
+            SELECT {data} FROM vacancies 
             JOIN employers ON employers.id = vacancies.emp_id
             WHERE salary > {average} 
-            ORDER BY salary DESC
+            ORDER BY salary ASC
             """
         )
 
-    def get_vacancies_with_keyword(self, keyword: str) -> list[tuple]:
+    def get_vacancies_with_keyword(self, keyword: str, full_data: bool = False) -> list[tuple]:
         """
         Функция принимает строку на вход и возвращает список вакансий, где
         есть совпадение в названии или описании вакансии.
@@ -126,9 +148,14 @@ class DBManager:
         :return:
         """
 
+        if not full_data:
+            data = 'vacancy_name, employer_name, salary'
+        else:
+            data = 'vacancies.id, vacancy_name, employer_name, salary, description, vacancy_url'
+
         return self.easy_querry(
             f"""
-                    SELECT vacancy_name, employer_name, salary FROM vacancies 
+                    SELECT {data} FROM vacancies 
                     JOIN employers ON employers.id = vacancies.emp_id
                     WHERE LOWER(description) LIKE '%{keyword.lower()}%' or LOWER(vacancy_name) LIKE '%{keyword.lower()}%'
                     ORDER BY salary DESC
@@ -253,6 +280,9 @@ class DBManager:
         elif fetch == 'one':
             return cur.fetchone()
 
+        elif fetch == 'without':
+            return None
+
     def __truncate_table(self, table_name: str) -> None:
         """
         Функция очищает переданную таблицу
@@ -267,22 +297,7 @@ class DBManager:
         )
 
 
-if __name__ == '__main__':
-
-    employers_ids = [
-        15478,
-        1740,
-        3192913,
-        3529,
-        80,
-        1117026,
-        1995278,
-        223892,
-        4566106,
-        49357
-    ]
-
-    # Estabilished time:
-    # one thread = 43.16 sec
-    # vs.
-    # multi threads = 14.25 sec
+# Estabilished time:
+# one thread = 43.16 sec
+# vs.
+# multi threads = 14.25 sec

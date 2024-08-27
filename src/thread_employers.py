@@ -17,8 +17,8 @@ class EmpDataWorker(Thread):
         response = requests.get(self.employers_url + self.emp_id)
 
         result = response.json()
-        emp_name = result['name']
-        open_vacs = result['open_vacancies']
+        emp_name = result.get('name', 'Нет данных')
+        open_vacs = result.get('open_vacancies', 0)
         cur = self.base_connect.cursor()
         cur.execute(
             f"""
