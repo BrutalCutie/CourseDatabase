@@ -121,6 +121,7 @@ class DBManager:
     def get_vacancies_with_higher_salary(self, full_data: bool = False) -> list[tuple]:
         """
         Функция возвращает список вакансий, которые по зарплате выше чем средняя з/п по всем вакансиям
+        :param full_data: Вывод полной информации, поступаемой с таблицы
         :return:
         """
 
@@ -145,6 +146,7 @@ class DBManager:
         Функция принимает строку на вход и возвращает список вакансий, где
         есть совпадение в названии или описании вакансии.
         :param keyword: Искомое слово среди вакансий. Строка
+        :param full_data: Вывод полной информации, поступаемой с таблицы
         :return:
         """
 
@@ -179,7 +181,21 @@ class DBManager:
 
         cur.execute(
             """
-            DROP TABLE IF EXISTS vacancies;
+            DROP TABLE IF EXISTS employers CASCADE;
+
+            CREATE TABLE employers(
+                id int PRIMARY KEY,
+                employer_name varchar NOT NULL,
+                open_vacancies int NOT NULL,
+                last_update TIMESTAMP default NOW()
+
+            );
+            """
+        )
+
+        cur.execute(
+            """
+            DROP TABLE IF EXISTS vacancies CASCADE;
 
             CREATE TABLE vacancies(
                 id int PRIMARY KEY,
@@ -189,20 +205,6 @@ class DBManager:
                 description text,
                 vacancy_url varchar,
                 FOREIGN KEY (emp_id) REFERENCES employers(id)
-
-            );
-            """
-        )
-
-        cur.execute(
-            """
-            DROP TABLE IF EXISTS employers CASCADE;
-
-            CREATE TABLE employers(
-                id int PRIMARY KEY,
-                employer_name varchar NOT NULL,
-                open_vacancies int NOT NULL,
-                last_update TIMESTAMP default NOW()
 
             );
             """
@@ -292,7 +294,7 @@ class DBManager:
 
         self.easy_querry(
             f"""
-            TRUNCATE TABLE {table_name}
+            TRUNCATE TABLE {table_name} CASCADE
             """, fetch='without'
         )
 
