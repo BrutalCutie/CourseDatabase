@@ -64,7 +64,7 @@ class Interface:
             chk_list = user_employers_id.split()
 
             if all(list(map(self.is_digit, chk_list))):
-                print("Идёт поиск работодателей и их вакансий", end='')
+                print("\nИдёт поиск работодателей и их вакансий", end='')
                 chk_list = list(map(int, chk_list))
                 self.db.set_new_employers(chk_list)
                 print('\rВсе работодатели и вакансии успешно добавлены')
