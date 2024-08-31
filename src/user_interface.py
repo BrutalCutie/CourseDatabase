@@ -25,7 +25,10 @@ class Interface:
         print('Приветствую пользователь!\n'
               'Я программа для получения данных о работодателей и их вакансиях.\n'
               'Следуй за инструкциями программы.')
+
         self.db = DBManager(self.own_employers, auto_create=True)
+        new_database = input("Дайте название своей базе данных: ")
+        self.db.create_database(new_database.lower())
         self.main_menu()
 
     @staticmethod

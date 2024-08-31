@@ -9,6 +9,7 @@ from roots import ENV_DIR
 from src.thread_employers import EmpDataWorker
 from src.thread_vacancies import VacDataWorker
 from psycopg2._psycopg import Decimal
+from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 
 class DBManager:
@@ -170,6 +171,34 @@ class DBManager:
         :return:
         """
         return psycopg2.connect(**self.connect_params)
+
+    def create_database(self, database_name: str):
+        """
+        Функция создаёт базу данных, если она ещё не создана и дальнейшее подключение ведётся по ней.
+        """
+
+        with self.__connect() as conn:
+            conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+            cur = conn.cursor()
+
+            cur.execute(
+                """
+                SELECT datname FROM pg_database
+                """
+            )
+        ctrl_list = [x[0] == f'{database_name}' for x in cur.fetchall()]
+
+        if not any(ctrl_list):
+            cur.execute(
+                f"""
+                CREATE DATABASE {database_name}
+                """
+            )
+        conn.commit()
+
+        self.connect_params['database'] = database_name
+
+        self.create_tables()
 
     def create_tables(self) -> None:
         """
